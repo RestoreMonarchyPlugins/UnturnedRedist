@@ -1,20 +1,16 @@
 # Unturned Redist
 This repository contains redist files for Unturned and Rocket.  
-They are automatically updated by RestoreMonarchy.com CI/CD when new versions are released.  
-You can use them in your projects by installing the NuGet packages.
+It is used to provide NuGet packages for development of Unturned plugins.  
+
+RestoreMonarchy.com CI/CD automatically commits updated assemblies when Unturned update is detected.  
+Then GitHub Actions build and publish NuGet packages.
 
 ## Unturned Redist
-* Unturned libraries (by Smartly Dressed Games)
-* Unity libraries (by Unity Technologies)
+![NuGet Version](https://img.shields.io/nuget/v/RestoreMonarchy.UnturnedRedist)
+* Unturned assemblies (by Smartly Dressed Games)
+* Unity assemblies (by Unity Technologies)
 * com.rlabrecque.steamworks.net (by Riley Labrecque)
-### Install
-```bash
-dotnet add package RestoreMonarchy.UnturnedRedist
-```
 
 ## Rocket Redist
-* Rocket libraries (by Smartly Dressed Games and fr34kyn01535)
-## Install
-```bash
-dotnet add package RestoreMonarchy.RocketRedist
-```
+![NuGet Version](https://img.shields.io/nuget/v/RestoreMonarchy.RocketRedist)
+* Rocket assemblies (by Smartly Dressed Games and fr34kyn01535)
