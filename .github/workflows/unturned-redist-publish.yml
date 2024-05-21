@@ -1,0 +1,16 @@
+name: Unturned Redist Publish
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - unturned/**
+
+jobs:
+  unturned-redist-publish:
+    uses: RestoreMonarchyPlugins/github-actions/.github/workflows/nuget-package-publish.yml@master
+    with:
+      nuspec_path: "./unturned/RestoreMonarchy.UnturnedRedist.nuspec"
+    secrets: inherit

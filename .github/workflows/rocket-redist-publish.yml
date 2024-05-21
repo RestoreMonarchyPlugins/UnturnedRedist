@@ -1,0 +1,16 @@
+name: Rocket Redist Publish
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - rocket/**
+
+jobs:
+  rocket-redist-publish:
+    uses: RestoreMonarchyPlugins/github-actions/.github/workflows/nuget-package-publish.yml@master
+    with:
+      nuspec_path: "./rocket/RestoreMonarchy.RocketRedist.nuspec"
+    secrets: inherit

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>RestoreMonarchy.RocketRedist</id>
+    <version>3.24.2-rc.2</version>
+    <description>Unturned Rocket.API, Rocket.Core and Rocket.Unturned assemblies</description>
+	  <projectUrl>https://github.com/RestoreMonarchyPlugins/UnturnedRedist</projectUrl>
+	  <repository type="git" url="https://github.com/RestoreMonarchyPlugins/UnturnedRedist.git" />
+    <authors>Smartly Dressed Games,fr34kyn01535,Restore Monarchy</authors>
+    <icon>icon.png</icon>
+    <readme>README.md</readme>
+	  <license type="file">LICENSE</license>
+	  <tags>Unturned, Unturned Plugin, Rocket Plugin, Unturned Server, Unturned Rocket Plugin</tags>
+	  <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <dependencies>
+      <group targetFramework=".NETFramework4.8">
+        <dependency id="RestoreMonarchy.UnturnedRedist" version="3.*" />
+      </group>
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="assemblies\*.dll" target="lib\net48" />
+    <file src="..\icon.png" target="icon.png" />
+    <file src="..\LICENSE" target="LICENSE" />
+    <file src="..\README.md" target="README.md" />
+  </files>
+</package>
