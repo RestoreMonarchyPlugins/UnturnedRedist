@@ -14,7 +14,7 @@
 	  <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <dependencies>
       <group targetFramework=".NETFramework4.8">
-        <dependency id="RestoreMonarchy.UnturnedRedist" version="3.25.5.0" />
+        <dependency id="RestoreMonarchy.UnturnedRedist" version="3.25.7.0" />
       </group>
     </dependencies>
   </metadata>
