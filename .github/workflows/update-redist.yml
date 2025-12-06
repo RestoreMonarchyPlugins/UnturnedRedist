@@ -22,19 +22,12 @@ jobs:
           unzip -q DepotDownloader-linux-x64.zip -d depotdownloader
           chmod +x depotdownloader/DepotDownloader
 
-      - name: Download Unturned
+      - name: Download Unturned Dedicated Server
         run: |
-          # Main game - Windows depot for managed DLLs
-          ./depotdownloader/DepotDownloader -app 304930 -depot 304934 -os windows -dir unturned_download
-          # Dedicated server depot - has Status.json and Rocket extras
+          # Linux binaries depot - has Unturned_Headless_Data/Managed/*.dll
+          ./depotdownloader/DepotDownloader -app 1110390 -depot 1110392 -os linux -dir unturned_download
+          # Linux content depot - has Status.json and Extras/Rocket.Unturned/*.dll
           ./depotdownloader/DepotDownloader -app 1110390 -depot 1110393 -os linux -dir unturned_download
-
-      - name: Debug - find Status.json
-        run: |
-          echo "Looking for Status.json..."
-          find unturned_download -name "Status.json" -type f
-          echo "Looking for Assembly-CSharp.dll..."
-          find unturned_download -name "Assembly-CSharp.dll" -type f
 
       - name: Extract version from Status.json
         id: version
@@ -72,7 +65,7 @@ jobs:
       - name: Copy Unturned assemblies
         if: steps.check_version.outputs.skip != 'true'
         run: |
-          MANAGED_DIR="unturned_download/Unturned_Data/Managed"
+          MANAGED_DIR="unturned_download/Unturned_Headless_Data/Managed"
 
           cp "$MANAGED_DIR/Assembly-CSharp.dll" unturned/assemblies/
           cp "$MANAGED_DIR/Assembly-CSharp.xml" unturned/assemblies/ || true
