@@ -22,9 +22,10 @@ jobs:
           unzip -q DepotDownloader-linux-x64.zip -d depotdownloader
           chmod +x depotdownloader/DepotDownloader
 
-      - name: Download Unturned Dedicated Server
+      - name: Download Unturned Dedicated Server (Windows for DLLs, Linux for Status.json)
         run: |
           ./depotdownloader/DepotDownloader -app 1110390 -depot 1110391 -os windows -dir unturned_download
+          ./depotdownloader/DepotDownloader -app 1110390 -depot 1110393 -os linux -dir unturned_download -filelist <(echo "Status.json")
 
       - name: Extract version from Status.json
         id: version
