@@ -22,12 +22,36 @@ jobs:
           unzip -q DepotDownloader-linux-x64.zip -d depotdownloader
           chmod +x depotdownloader/DepotDownloader
 
+      - name: Create file lists
+        run: |
+          # Files from Linux binaries depot (1110392)
+          cat > binaries_filelist.txt << 'EOF'
+          Unturned_Headless_Data/Managed/Assembly-CSharp.dll
+          Unturned_Headless_Data/Managed/Assembly-CSharp.xml
+          Unturned_Headless_Data/Managed/Newtonsoft.Json.dll
+          Unturned_Headless_Data/Managed/SDG.NetTransport.dll
+          Unturned_Headless_Data/Managed/UnityEngine.CoreModule.dll
+          Unturned_Headless_Data/Managed/UnityEngine.PhysicsModule.dll
+          Unturned_Headless_Data/Managed/UnityEngine.dll
+          Unturned_Headless_Data/Managed/UnityEx.dll
+          Unturned_Headless_Data/Managed/UnturnedDat.dll
+          Unturned_Headless_Data/Managed/com.rlabrecque.steamworks.net.dll
+          EOF
+
+          # Files from Linux content depot (1110393)
+          cat > content_filelist.txt << 'EOF'
+          Status.json
+          Extras/Rocket.Unturned/Rocket.API.dll
+          Extras/Rocket.Unturned/Rocket.Core.dll
+          Extras/Rocket.Unturned/Rocket.Unturned.dll
+          EOF
+
       - name: Download Unturned Dedicated Server
         run: |
-          # Linux binaries depot - has Unturned_Headless_Data/Managed/*.dll
-          ./depotdownloader/DepotDownloader -app 1110390 -depot 1110392 -os linux -dir unturned_download
-          # Linux content depot - has Status.json and Extras/Rocket.Unturned/*.dll
-          ./depotdownloader/DepotDownloader -app 1110390 -depot 1110393 -os linux -dir unturned_download
+          # Linux binaries depot - managed DLLs only
+          ./depotdownloader/DepotDownloader -app 1110390 -depot 1110392 -os linux -dir unturned_download -filelist binaries_filelist.txt
+          # Linux content depot - Status.json and Rocket DLLs only
+          ./depotdownloader/DepotDownloader -app 1110390 -depot 1110393 -os linux -dir unturned_download -filelist content_filelist.txt
 
       - name: Extract version from Status.json
         id: version
@@ -105,6 +129,6 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add unturned/ rocket/
           git commit -m "update to $VERSION"
           git push
