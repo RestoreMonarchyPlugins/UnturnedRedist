@@ -2,15 +2,15 @@ name: Update and Publish
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: "0 */6 * * *"
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version override (e.g., 3.25.10.1). Leave empty to auto-detect.'
+        description: "Version override (e.g., 3.25.10.1). Leave empty to auto-detect."
         required: false
         type: string
       force:
-        description: 'Force update even if version matches'
+        description: "Force update even if version matches"
         required: false
         type: boolean
         default: false
@@ -119,14 +119,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add unturned/ rocket/
-          git commit -m "Update to $VERSION"
-          git push
+          git diff --staged --quiet || (git commit -m "Update to $VERSION" && git push)
 
       - name: Setup .NET
         if: steps.check.outputs.skip != 'true'
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: "8.0.x"
 
       - name: Pack and publish UnturnedRedist
         if: steps.check.outputs.skip != 'true'
