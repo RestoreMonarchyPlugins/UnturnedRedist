@@ -127,14 +127,19 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Install NuGet CLI
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          sudo curl -o /usr/local/bin/nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+
       - name: Pack and publish UnturnedRedist
         if: steps.check.outputs.skip != 'true'
         run: |
-          nuget pack unturned/RestoreMonarchy.UnturnedRedist.nuspec -OutputDirectory out
+          mono /usr/local/bin/nuget.exe pack unturned/RestoreMonarchy.UnturnedRedist.nuspec -OutputDirectory out
           dotnet nuget push out/RestoreMonarchy.UnturnedRedist.*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       - name: Pack and publish RocketRedist
         if: steps.check.outputs.skip != 'true'
         run: |
-          nuget pack rocket/RestoreMonarchy.RocketRedist.nuspec -OutputDirectory out
+          mono /usr/local/bin/nuget.exe pack rocket/RestoreMonarchy.RocketRedist.nuspec -OutputDirectory out
           dotnet nuget push out/RestoreMonarchy.RocketRedist.*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
