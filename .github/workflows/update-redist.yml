@@ -1,0 +1,107 @@
+name: Update Redist
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version override (e.g., 3.25.10.1). Leave empty to auto-detect from Status.json'
+        required: false
+        type: string
+
+jobs:
+  update-redist:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install DepotDownloader
+        run: |
+          wget -q https://github.com/SteamRE/DepotDownloader/releases/latest/download/DepotDownloader-linux-x64.zip
+          unzip -q DepotDownloader-linux-x64.zip -d depotdownloader
+          chmod +x depotdownloader/DepotDownloader
+
+      - name: Download Unturned Dedicated Server
+        run: |
+          ./depotdownloader/DepotDownloader -app 1110390 -depot 1110393 -os linux -dir unturned_download
+
+      - name: Extract version from Status.json
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            STATUS_FILE="unturned_download/Status.json"
+            if [ -f "$STATUS_FILE" ]; then
+              MAJOR=$(jq -r '.Game.Major_Version' "$STATUS_FILE")
+              MINOR=$(jq -r '.Game.Minor_Version' "$STATUS_FILE")
+              PATCH=$(jq -r '.Game.Patch_Version' "$STATUS_FILE")
+              VERSION="3.${MAJOR}.${MINOR}.${PATCH}"
+            else
+              echo "Status.json not found!"
+              exit 1
+            fi
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Detected version: $VERSION"
+
+      - name: Check if version already exists
+        id: check_version
+        run: |
+          CURRENT_VERSION=$(grep -oP '(?<=<version>)[^<]+' unturned/RestoreMonarchy.UnturnedRedist.nuspec)
+          NEW_VERSION="${{ steps.version.outputs.version }}"
+          if [ "$CURRENT_VERSION" = "$NEW_VERSION" ]; then
+            echo "Version $NEW_VERSION already exists, skipping update"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Updating from $CURRENT_VERSION to $NEW_VERSION"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Copy Unturned assemblies
+        if: steps.check_version.outputs.skip != 'true'
+        run: |
+          MANAGED_DIR="unturned_download/Unturned_Headless_Data/Managed"
+
+          cp "$MANAGED_DIR/Assembly-CSharp.dll" unturned/assemblies/
+          cp "$MANAGED_DIR/Assembly-CSharp.xml" unturned/assemblies/ || true
+          cp "$MANAGED_DIR/Newtonsoft.Json.dll" unturned/assemblies/
+          cp "$MANAGED_DIR/SDG.NetTransport.dll" unturned/assemblies/
+          cp "$MANAGED_DIR/UnityEngine.CoreModule.dll" unturned/assemblies/
+          cp "$MANAGED_DIR/UnityEngine.PhysicsModule.dll" unturned/assemblies/
+          cp "$MANAGED_DIR/UnityEngine.dll" unturned/assemblies/
+          cp "$MANAGED_DIR/UnityEx.dll" unturned/assemblies/ || true
+          cp "$MANAGED_DIR/UnturnedDat.dll" unturned/assemblies/ || true
+          cp "$MANAGED_DIR/com.rlabrecque.steamworks.net.dll" unturned/assemblies/
+
+      - name: Copy Rocket assemblies
+        if: steps.check_version.outputs.skip != 'true'
+        run: |
+          ROCKET_DIR="unturned_download/Extras/Rocket.Unturned"
+
+          cp "$ROCKET_DIR/Rocket.API.dll" rocket/assemblies/
+          cp "$ROCKET_DIR/Rocket.Core.dll" rocket/assemblies/
+          cp "$ROCKET_DIR/Rocket.Unturned.dll" rocket/assemblies/
+
+      - name: Update nuspec versions
+        if: steps.check_version.outputs.skip != 'true'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Update UnturnedRedist nuspec
+          sed -i "s|<version>[^<]*</version>|<version>$VERSION</version>|" unturned/RestoreMonarchy.UnturnedRedist.nuspec
+
+          # Update RocketRedist nuspec (version and dependency)
+          sed -i "s|<version>[^<]*</version>|<version>$VERSION</version>|" rocket/RestoreMonarchy.RocketRedist.nuspec
+          sed -i "s|<dependency id=\"RestoreMonarchy.UnturnedRedist\" version=\"[^\"]*\"|<dependency id=\"RestoreMonarchy.UnturnedRedist\" version=\"$VERSION\"|" rocket/RestoreMonarchy.RocketRedist.nuspec
+
+      - name: Commit and push changes
+        if: steps.check_version.outputs.skip != 'true'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "update to $VERSION"
+          git push
