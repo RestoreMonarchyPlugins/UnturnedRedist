@@ -1,0 +1,141 @@
+name: Update and Publish
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version override (e.g., 3.25.10.1). Leave empty to auto-detect.'
+        required: false
+        type: string
+      force:
+        description: 'Force update even if version matches'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  update-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install DepotDownloader
+        run: |
+          wget -q https://github.com/SteamRE/DepotDownloader/releases/latest/download/DepotDownloader-linux-x64.zip
+          unzip -q DepotDownloader-linux-x64.zip -d depotdownloader
+          chmod +x depotdownloader/DepotDownloader
+
+      - name: Create file lists
+        run: |
+          cat > binaries_filelist.txt << 'EOF'
+          Unturned_Headless_Data/Managed/Assembly-CSharp.dll
+          Unturned_Headless_Data/Managed/Assembly-CSharp.xml
+          Unturned_Headless_Data/Managed/Newtonsoft.Json.dll
+          Unturned_Headless_Data/Managed/SDG.NetTransport.dll
+          Unturned_Headless_Data/Managed/UnityEngine.CoreModule.dll
+          Unturned_Headless_Data/Managed/UnityEngine.PhysicsModule.dll
+          Unturned_Headless_Data/Managed/UnityEngine.dll
+          Unturned_Headless_Data/Managed/UnityEx.dll
+          Unturned_Headless_Data/Managed/UnturnedDat.dll
+          Unturned_Headless_Data/Managed/com.rlabrecque.steamworks.net.dll
+          EOF
+
+          cat > content_filelist.txt << 'EOF'
+          Status.json
+          Extras/Rocket.Unturned/Rocket.API.dll
+          Extras/Rocket.Unturned/Rocket.Core.dll
+          Extras/Rocket.Unturned/Rocket.Unturned.dll
+          EOF
+
+      - name: Download from Steam
+        run: |
+          ./depotdownloader/DepotDownloader -app 1110390 -depot 1110392 -os linux -dir download -filelist binaries_filelist.txt
+          ./depotdownloader/DepotDownloader -app 1110390 -depot 1110393 -os linux -dir download -filelist content_filelist.txt
+
+      - name: Get version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            STATUS_FILE="download/Status.json"
+            MAJOR=$(jq -r '.Game.Major_Version' "$STATUS_FILE")
+            MINOR=$(jq -r '.Game.Minor_Version' "$STATUS_FILE")
+            PATCH=$(jq -r '.Game.Patch_Version' "$STATUS_FILE")
+            VERSION="3.${MAJOR}.${MINOR}.${PATCH}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Check if update needed
+        id: check
+        run: |
+          CURRENT=$(grep -oP '(?<=<version>)[^<]+' unturned/RestoreMonarchy.UnturnedRedist.nuspec)
+          NEW="${{ steps.version.outputs.version }}"
+          FORCE="${{ inputs.force }}"
+
+          if [ "$CURRENT" = "$NEW" ] && [ "$FORCE" != "true" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Already up to date ($CURRENT)"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "Updating $CURRENT -> $NEW"
+          fi
+
+      - name: Copy assemblies
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          cp download/Unturned_Headless_Data/Managed/Assembly-CSharp.dll unturned/assemblies/
+          cp download/Unturned_Headless_Data/Managed/Assembly-CSharp.xml unturned/assemblies/ || true
+          cp download/Unturned_Headless_Data/Managed/Newtonsoft.Json.dll unturned/assemblies/
+          cp download/Unturned_Headless_Data/Managed/SDG.NetTransport.dll unturned/assemblies/
+          cp download/Unturned_Headless_Data/Managed/UnityEngine.CoreModule.dll unturned/assemblies/
+          cp download/Unturned_Headless_Data/Managed/UnityEngine.PhysicsModule.dll unturned/assemblies/
+          cp download/Unturned_Headless_Data/Managed/UnityEngine.dll unturned/assemblies/
+          cp download/Unturned_Headless_Data/Managed/UnityEx.dll unturned/assemblies/ || true
+          cp download/Unturned_Headless_Data/Managed/UnturnedDat.dll unturned/assemblies/ || true
+          cp download/Unturned_Headless_Data/Managed/com.rlabrecque.steamworks.net.dll unturned/assemblies/
+
+          cp download/Extras/Rocket.Unturned/Rocket.API.dll rocket/assemblies/
+          cp download/Extras/Rocket.Unturned/Rocket.Core.dll rocket/assemblies/
+          cp download/Extras/Rocket.Unturned/Rocket.Unturned.dll rocket/assemblies/
+
+      - name: Update nuspec versions
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "s|<version>[^<]*</version>|<version>$VERSION</version>|" unturned/RestoreMonarchy.UnturnedRedist.nuspec
+          sed -i "s|<version>[^<]*</version>|<version>$VERSION</version>|" rocket/RestoreMonarchy.RocketRedist.nuspec
+          sed -i "s|<dependency id=\"RestoreMonarchy.UnturnedRedist\" version=\"[^\"]*\"|<dependency id=\"RestoreMonarchy.UnturnedRedist\" version=\"$VERSION\"|" rocket/RestoreMonarchy.RocketRedist.nuspec
+
+      - name: Commit changes
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add unturned/ rocket/
+          git commit -m "Update to $VERSION"
+          git push
+
+      - name: Setup .NET
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Pack and publish UnturnedRedist
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          nuget pack unturned/RestoreMonarchy.UnturnedRedist.nuspec -OutputDirectory out
+          dotnet nuget push out/RestoreMonarchy.UnturnedRedist.*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      - name: Pack and publish RocketRedist
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          nuget pack rocket/RestoreMonarchy.RocketRedist.nuspec -OutputDirectory out
+          dotnet nuget push out/RestoreMonarchy.RocketRedist.*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
