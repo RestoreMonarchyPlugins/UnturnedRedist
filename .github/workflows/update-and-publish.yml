@@ -130,16 +130,17 @@ jobs:
       - name: Install NuGet CLI
         if: steps.check.outputs.skip != 'true'
         run: |
-          sudo apt-get update && sudo apt-get install -y nuget
+          curl -o nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+          sudo apt-get update && sudo apt-get install -y mono-complete
 
       - name: Pack and publish UnturnedRedist
         if: steps.check.outputs.skip != 'true'
         run: |
-          nuget pack unturned/RestoreMonarchy.UnturnedRedist.nuspec -OutputDirectory out
+          mono nuget.exe pack unturned/RestoreMonarchy.UnturnedRedist.nuspec -OutputDirectory out
           dotnet nuget push out/RestoreMonarchy.UnturnedRedist.*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       - name: Pack and publish RocketRedist
         if: steps.check.outputs.skip != 'true'
         run: |
-          nuget pack rocket/RestoreMonarchy.RocketRedist.nuspec -OutputDirectory out
+          mono nuget.exe pack rocket/RestoreMonarchy.RocketRedist.nuspec -OutputDirectory out
           dotnet nuget push out/RestoreMonarchy.RocketRedist.*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
