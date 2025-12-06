@@ -26,10 +26,15 @@ jobs:
         run: |
           # Main game - Windows depot for managed DLLs
           ./depotdownloader/DepotDownloader -app 304930 -depot 304934 -os windows -dir unturned_download
-          # Main game - content depot for Status.json
-          ./depotdownloader/DepotDownloader -app 304930 -depot 304933 -dir unturned_download -filelist <(echo "Status.json")
-          # Dedicated server - for Rocket.Unturned extras
-          ./depotdownloader/DepotDownloader -app 1110390 -depot 1110393 -os linux -dir unturned_download -filelist <(echo -e "Extras/Rocket.Unturned/Rocket.API.dll\nExtras/Rocket.Unturned/Rocket.Core.dll\nExtras/Rocket.Unturned/Rocket.Unturned.dll")
+          # Dedicated server depot - has Status.json and Rocket extras
+          ./depotdownloader/DepotDownloader -app 1110390 -depot 1110393 -os linux -dir unturned_download
+
+      - name: Debug - find Status.json
+        run: |
+          echo "Looking for Status.json..."
+          find unturned_download -name "Status.json" -type f
+          echo "Looking for Assembly-CSharp.dll..."
+          find unturned_download -name "Assembly-CSharp.dll" -type f
 
       - name: Extract version from Status.json
         id: version
