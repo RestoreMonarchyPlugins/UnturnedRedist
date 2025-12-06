@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version override (e.g., 3.25.10.1). Leave empty to auto-detect from Status.json'
+        description: "Version override (e.g., 3.25.10.1). Leave empty to auto-detect from Status.json"
         required: false
         type: string
 
@@ -24,7 +24,7 @@ jobs:
 
       - name: Download Unturned Dedicated Server
         run: |
-          ./depotdownloader/DepotDownloader -app 1110390 -depot 1110393 -os linux -dir unturned_download
+          ./depotdownloader/DepotDownloader -app 1110390 -depot 1110391 -os windows -dir unturned_download
 
       - name: Extract version from Status.json
         id: version
