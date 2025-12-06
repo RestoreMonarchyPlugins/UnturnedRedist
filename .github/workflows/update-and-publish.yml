@@ -2,7 +2,7 @@ name: Update and Publish
 
 on:
   schedule:
-    - cron: "0 */6 * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       version:
@@ -16,7 +16,51 @@ on:
         default: false
 
 jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      needs_update: ${{ steps.check.outputs.needs_update }}
+      new_buildid: ${{ steps.check.outputs.new_buildid }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Steam build ID
+        id: check
+        run: |
+          # Get current build ID from repo
+          if [ -f "buildid.txt" ]; then
+            CURRENT_BUILD=$(cat buildid.txt)
+          else
+            CURRENT_BUILD="0"
+          fi
+          echo "Current build ID: $CURRENT_BUILD"
+
+          if [ -n "${{ inputs.version }}" ]; then
+            # Manual version override - always update
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "Manual version override: ${{ inputs.version }}"
+          else
+            # Get latest build ID from Steam API
+            RESPONSE=$(curl -s "https://api.steamcmd.net/v1/info/1110390")
+            NEW_BUILD=$(echo "$RESPONSE" | jq -r '.data["1110390"].depots.branches.public.buildid')
+            echo "Steam build ID: $NEW_BUILD"
+            echo "new_buildid=$NEW_BUILD" >> $GITHUB_OUTPUT
+
+            FORCE="${{ inputs.force }}"
+            if [ "$CURRENT_BUILD" = "$NEW_BUILD" ] && [ "$FORCE" != "true" ]; then
+              echo "needs_update=false" >> $GITHUB_OUTPUT
+              echo "No update needed"
+            else
+              echo "needs_update=true" >> $GITHUB_OUTPUT
+              echo "Update available: build $CURRENT_BUILD -> $NEW_BUILD"
+            fi
+          fi
+
   update-and-publish:
+    needs: check-version
+    if: needs.check-version.outputs.needs_update == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -56,7 +100,7 @@ jobs:
           ./depotdownloader/DepotDownloader -app 1110390 -depot 1110392 -os linux -dir download -filelist binaries_filelist.txt
           ./depotdownloader/DepotDownloader -app 1110390 -depot 1110393 -os linux -dir download -filelist content_filelist.txt
 
-      - name: Get version
+      - name: Get version from Status.json
         id: version
         run: |
           if [ -n "${{ inputs.version }}" ]; then
@@ -71,23 +115,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
 
-      - name: Check if update needed
-        id: check
-        run: |
-          CURRENT=$(grep -oP '(?<=<version>)[^<]+' unturned/RestoreMonarchy.UnturnedRedist.nuspec)
-          NEW="${{ steps.version.outputs.version }}"
-          FORCE="${{ inputs.force }}"
-
-          if [ "$CURRENT" = "$NEW" ] && [ "$FORCE" != "true" ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-            echo "Already up to date ($CURRENT)"
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-            echo "Updating $CURRENT -> $NEW"
-          fi
-
       - name: Copy assemblies
-        if: steps.check.outputs.skip != 'true'
         run: |
           cp download/Unturned_Headless_Data/Managed/Assembly-CSharp.dll unturned/assemblies/
           cp download/Unturned_Headless_Data/Managed/Assembly-CSharp.xml unturned/assemblies/ || true
@@ -105,42 +133,40 @@ jobs:
           cp download/Extras/Rocket.Unturned/Rocket.Unturned.dll rocket/assemblies/
 
       - name: Update nuspec versions
-        if: steps.check.outputs.skip != 'true'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           sed -i "s|<version>[^<]*</version>|<version>$VERSION</version>|" unturned/RestoreMonarchy.UnturnedRedist.nuspec
           sed -i "s|<version>[^<]*</version>|<version>$VERSION</version>|" rocket/RestoreMonarchy.RocketRedist.nuspec
           sed -i "s|<dependency id=\"RestoreMonarchy.UnturnedRedist\" version=\"[^\"]*\"|<dependency id=\"RestoreMonarchy.UnturnedRedist\" version=\"$VERSION\"|" rocket/RestoreMonarchy.RocketRedist.nuspec
 
+      - name: Save build ID
+        run: |
+          echo "${{ needs.check-version.outputs.new_buildid }}" > buildid.txt
+
       - name: Commit changes
-        if: steps.check.outputs.skip != 'true'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add unturned/ rocket/
+          git add unturned/ rocket/ buildid.txt
           git diff --staged --quiet || (git commit -m "Update to $VERSION" && git push)
 
       - name: Setup .NET
-        if: steps.check.outputs.skip != 'true'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
 
       - name: Install NuGet CLI
-        if: steps.check.outputs.skip != 'true'
         run: |
           curl -o nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
           sudo apt-get update && sudo apt-get install -y mono-complete
 
       - name: Pack and publish UnturnedRedist
-        if: steps.check.outputs.skip != 'true'
         run: |
           mono nuget.exe pack unturned/RestoreMonarchy.UnturnedRedist.nuspec -OutputDirectory out
           dotnet nuget push out/RestoreMonarchy.UnturnedRedist.*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       - name: Pack and publish RocketRedist
-        if: steps.check.outputs.skip != 'true'
         run: |
           mono nuget.exe pack rocket/RestoreMonarchy.RocketRedist.nuspec -OutputDirectory out
           dotnet nuget push out/RestoreMonarchy.RocketRedist.*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
