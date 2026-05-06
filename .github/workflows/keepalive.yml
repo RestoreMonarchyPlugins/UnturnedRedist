@@ -1,0 +1,34 @@
+name: Keep Workflows Alive
+
+# GitHub auto-disables scheduled workflows on public repos after 60 days
+# without commits to the default branch (state: disabled_inactivity).
+# This workflow rewrites a marker file with the current timestamp once a
+# week so the inactivity clock never reaches 60 days even when no real
+# update lands.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"  # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump keepalive marker
+        run: |
+          mkdir -p .github
+          date -u +%Y-%m-%dT%H:%M:%SZ > .github/keepalive.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/keepalive.txt
+          git diff --staged --quiet || git commit -m "chore: keepalive ping"
+          git push

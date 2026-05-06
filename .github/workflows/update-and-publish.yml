@@ -2,7 +2,10 @@ name: Update and Publish
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    # Hourly is plenty - Unturned ships a few patches per month, and the
+    # check is a single Steam Web API call so cadence never bottlenecks
+    # on rate limits, just on no-op runs eating GitHub Actions minutes.
+    - cron: "0 * * * *"
   workflow_dispatch:
     inputs:
       version:
