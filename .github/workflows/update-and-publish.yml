@@ -65,6 +65,9 @@ jobs:
     needs: check-version
     if: needs.check-version.outputs.needs_update == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # mint a short-lived NuGet key via Trusted Publishing (OIDC)
+      contents: write # push the updated assemblies/nuspec commit back to the repo
 
     steps:
       - name: Checkout repository
@@ -164,12 +167,18 @@ jobs:
           curl -o nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
           sudo apt-get update && sudo apt-get install -y mono-complete
 
+      - name: NuGet login (Trusted Publishing)
+        uses: NuGet/login@v1
+        id: nuget_login
+        with:
+          user: RestoreMonarchy
+
       - name: Pack and publish UnturnedRedist
         run: |
           mono nuget.exe pack unturned/RestoreMonarchy.UnturnedRedist.nuspec -OutputDirectory out
-          dotnet nuget push out/RestoreMonarchy.UnturnedRedist.*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+          dotnet nuget push out/RestoreMonarchy.UnturnedRedist.*.nupkg --api-key ${{ steps.nuget_login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       - name: Pack and publish RocketRedist
         run: |
           mono nuget.exe pack rocket/RestoreMonarchy.RocketRedist.nuspec -OutputDirectory out
-          dotnet nuget push out/RestoreMonarchy.RocketRedist.*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+          dotnet nuget push out/RestoreMonarchy.RocketRedist.*.nupkg --api-key ${{ steps.nuget_login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
